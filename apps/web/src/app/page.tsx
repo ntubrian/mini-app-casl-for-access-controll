@@ -11,6 +11,7 @@ import {
 } from "../lib/ability";
 import { AbilityProvider } from "../lib/ability-context";
 import type { AbilityPolicyResponse, ApiAbilityRule } from "../lib/ability-policy";
+import { policyTemplates, type PolicySetKey } from "@policies";
 
 const users: Record<string, User> = {
   sales: {
@@ -82,25 +83,11 @@ const roleDescriptions: Record<User["role"], string> = {
   admin: "擁有全部對象與操作權限。"
 };
 
-const policySets = [
-  {
-    key: "sales-focus",
-    label: "銷售重點",
-    description: "按事業部分配訂單權限，並按等級控制報表可見性。"
-  },
-  {
-    key: "regional-manager",
-    label: "區域經理",
-    description: "按區域審批訂單與查看報表。"
-  },
-  {
-    key: "admin-lite",
-    label: "管理員（限制）",
-    description: "可管理全部對象，但不允許刪除訂單。"
-  }
-] as const;
-
-type PolicySetKey = (typeof policySets)[number]["key"];
+const policySets = Object.entries(policyTemplates).map(([key, value]) => ({
+  key: key as PolicySetKey,
+  label: value.name,
+  description: value.description
+}));
 
 const policyCards = [
   {
@@ -148,11 +135,17 @@ export default function Home() {
     "idle"
   );
   const [policyIssuedAt, setPolicyIssuedAt] = useState<string | null>(null);
+  const [policyVersion, setPolicyVersion] = useState<number | null>(null);
+  const apiBase = useMemo(
+    () => process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "",
+    []
+  );
 
   useEffect(() => {
     setPolicyRules(null);
     setPolicyStatus("idle");
     setPolicyIssuedAt(null);
+    setPolicyVersion(null);
   }, [selected, policySet]);
 
   const updatePolicy = async () => {
@@ -160,7 +153,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `/api/ability?set=${policySet}&user=${selected}`
+        `${apiBase}/api/ability?set=${policySet}&user=${selected}`
       );
 
       if (!response.ok) {
@@ -170,6 +163,7 @@ export default function Home() {
       const data = (await response.json()) as AbilityPolicyResponse;
       setPolicyRules(data.rules);
       setPolicyIssuedAt(data.issuedAt ?? null);
+      setPolicyVersion(typeof data.version === "number" ? data.version : null);
       setPolicyStatus("ready");
     } catch (error) {
       setPolicyStatus("error");
@@ -266,6 +260,7 @@ export default function Home() {
                       policySet}
                   </strong>
                 </span>
+                {policyVersion ? <span>版本 {policyVersion}</span> : null}
                 {policyIssuedAt ? (
                   <span>
                     更新時間 {new Date(policyIssuedAt).toLocaleTimeString("zh-TW")}

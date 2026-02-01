@@ -1,0 +1,8 @@
+{
+  "extends": "nx/presets/npm.json",
+  "npmScope": "mini-app-casl",
+  "workspaceLayout": {
+    "appsDir": "apps",
+    "libsDir": "libs"
+  }
+}

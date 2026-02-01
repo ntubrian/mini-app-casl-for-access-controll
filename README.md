@@ -17,28 +17,32 @@ Minimal Next.js (App Router) example that demonstrates role-based access control
 - **Admin**
   - Manage everything.
 
-## Project structure
+## Project structure (Nx monorepo)
 
-- `src/lib/ability.ts` - Ability types, rules, and helpers.
-- `src/lib/ability-context.tsx` - React context and `<Can />` component bound to the context.
-- `src/app/page.tsx` - Demo UI that exercises permissions.
+- `apps/web` - Next.js app (frontend + API routes).
+- `apps/web/src/lib/ability.ts` - Ability types, rules, and helpers.
+- `apps/web/src/lib/ability-context.tsx` - React context and `<Can />` component bound to the context.
+- `apps/web/src/app/page.tsx` - Demo UI that exercises permissions.
+- `apps/api/src/index.ts` - Backend API service (Express, reads/writes Neon).
+- `libs/db` - Drizzle schema + Neon connection.
+- `libs/policies` - Policy templates shared by backend and frontend.
 
 ## CASL setup (how it works here)
 
 1. **Define ability types and rules**  
-   In `src/lib/ability.ts`, we define the action/subject types and the rules based on the current user.
+   In `apps/web/src/lib/ability.ts`, we define the action/subject types and the rules based on the current user.
 
    - `defineRulesFor(user)` builds the rule set.
    - `buildAbilityFor(user)` creates an ability instance from those rules.
 
 2. **Bind ability to React**  
-   In `src/lib/ability-context.tsx`, we create a React context and a contextual `<Can />` component:
+   In `apps/web/src/lib/ability-context.tsx`, we create a React context and a contextual `<Can />` component:
 
    - `<AbilityProvider user={user}>` creates the ability and provides it.
    - `<Can I="read" this={orderSubject(order)}>` checks authorization in the UI.
 
 3. **Use in the UI**  
-   In `src/app/page.tsx`, the demo renders orders and reports and shows what each role can do.
+   In `apps/web/src/app/page.tsx`, the demo renders orders and reports and shows what each role can do.
 
 ## Subject helpers and `__type`
 
@@ -85,7 +89,7 @@ Plain object literals do not have a useful constructor name, so without tagging 
 If the backend sends a policy, send serialized CASL rules and type them on the frontend.
 
 ```ts
-// src/lib/ability-policy.ts
+// apps/web/src/lib/ability-policy.ts
 import type { RawRuleOf } from "@casl/ability";
 import type { AppAbility } from "./ability";
 
@@ -108,9 +112,9 @@ const ability = new AppAbility(rules, abilityOptions);
 
 If you need a smaller payload, use `packRules` on the server and `unpackRules` on the client from `@casl/ability/extra`.
 
-## Mock policy API
+## Policy API (backend service)
 
-This demo includes a mock endpoint that returns three different policy sets:
+This demo exposes a backend API (Express, serverless on Vercel) and returns three default policy sets (seeded on first run):
 
 - `GET /api/ability?set=sales-focus&user=sales`
 - `GET /api/ability?set=regional-manager&user=manager`
@@ -118,11 +122,42 @@ This demo includes a mock endpoint that returns three different policy sets:
 
 The UI exposes a policy picker and an "Update policy" button that swaps the in-memory ability rules with the API response.
 
+## Neon + Drizzle persistence
+
+Policies are stored in Postgres (Neon) with **policy set + version** tables:
+
+- `policy_sets` stores the policy set key/name/description.
+- `policy_versions` stores the JSON rules and version number.
+
+API behavior:
+
+- `GET /api/ability?set=...&user=...` returns the latest version and injects `$user.*` tokens.
+- `POST /api/ability` creates a new version (raw rules JSON).
+- `POST /api/policies/seed` seeds default policy sets and versions.
+
+Default seeded rules use simple tokens like `$user.region` and `$user.level` which are resolved on the server before returning to the client.
+
+### Schema + migrations
+
+1) Set `DATABASE_URL` (see `.env.example`).
+2) (Optional) If you run the API separately, set `NEXT_PUBLIC_API_BASE=http://localhost:4000`.
+3) Generate migrations:
+
+```bash
+npm run db:generate
+```
+
+4) Push to Neon:
+
+```bash
+npm run db:push
+```
+
 ## UI design notes
 
-- `src/app/globals.css` holds the theme tokens, layout utilities, and component styles for the demo UI.
-- Fonts are loaded in `src/app/layout.tsx` with `next/font/google` and wired to CSS variables.
-- `src/app/page.tsx` renders semantic sections and cards; the layout is responsive and uses light motion.
+- `apps/web/src/app/globals.css` holds the theme tokens, layout utilities, and component styles for the demo UI.
+- Fonts are loaded in `apps/web/src/app/layout.tsx` with `next/font/google` and wired to CSS variables.
+- `apps/web/src/app/page.tsx` renders semantic sections and cards; the layout is responsive and uses light motion.
 
 ## Getting started
 
@@ -132,3 +167,36 @@ npm run dev
 ```
 
 Open `http://localhost:3000` and switch roles to see the permissions applied.
+
+## Local backend dev
+
+Run the Express API locally:
+
+```bash
+npm run dev:api
+```
+
+Then run the frontend:
+
+```bash
+npm run dev
+```
+
+## Swagger / OpenAPI
+
+- Swagger UI: `http://localhost:4000/api/docs`
+- OpenAPI JSON: `http://localhost:4000/api/openapi.json`
+
+## Vercel deployment (serverless)
+
+This repo uses `vercel.json` to route `/api/*` to the Express serverless function:
+
+- Frontend: `apps/web` (Next.js)
+- Backend: `apps/api/src/index.ts` (Express on @vercel/node)
+
+Steps:
+
+1) Import the repo into Vercel.
+2) Add `DATABASE_URL` in Project Settings → Environment Variables.
+3) (Optional) Keep Build Command empty or use `npm run build` if you want Nx to build the app.
+4) Deploy.
