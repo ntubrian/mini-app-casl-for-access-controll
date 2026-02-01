@@ -16,6 +16,7 @@
     "apps/*",
     "libs/*"
   ],
+
   "dependencies": {
     "@casl/ability": "^6.7.1",
     "@casl/react": "^4.0.0",

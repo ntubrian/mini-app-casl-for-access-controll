@@ -4,8 +4,6 @@
     { "src": "apps/api/src/index.ts", "use": "@vercel/node" }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "apps/api/src/index.ts" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "apps/web" }
+    { "src": "/api/(.*)", "dest": "apps/api/src/index.ts" }
   ]
 }
