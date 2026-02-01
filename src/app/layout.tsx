@@ -1,4 +1,16 @@
 import type { Metadata } from "next";
+import { Fraunces, Space_Grotesk } from "next/font/google";
+import "./globals.css";
+
+const displayFont = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display"
+});
+
+const bodyFont = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-sans"
+});
 
 export const metadata: Metadata = {
   title: "CASL RBAC/ABAC Demo",
@@ -11,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body style={{ margin: 0, fontFamily: "system-ui, sans-serif" }}>
+    <html lang="zh-Hant-TW">
+      <body className={`${displayFont.variable} ${bodyFont.variable}`}>
         {children}
       </body>
     </html>

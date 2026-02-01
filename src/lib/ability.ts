@@ -1,4 +1,4 @@
-import { AbilityBuilder, AbilityClass, PureAbility, subject } from "@casl/ability";
+import { Ability, AbilityBuilder, AbilityClass, subject } from "@casl/ability";
 
 export type Actions = "manage" | "create" | "read" | "update" | "delete" | "approve";
 export type Subjects =
@@ -32,11 +32,16 @@ export interface Report {
   visibilityLevel: 1 | 2 | 3;
 }
 
-export type AppAbility = PureAbility<[Actions, Subjects]>;
-const AppAbility = PureAbility as AbilityClass<AppAbility>;
+export type AppSubjects = Subjects | Order | Report | User;
+export type AppAbility = Ability<[Actions, AppSubjects]>;
+export const AppAbility = Ability as AbilityClass<AppAbility>;
+export const abilityOptions = {
+  detectSubjectType: (item: unknown) =>
+    (item as { __type: Subjects }).__type
+};
 
-export function buildAbilityFor(user: User) {
-  const { can, cannot, build } = new AbilityBuilder(AppAbility);
+export function defineRulesFor(user: User) {
+  const { can, cannot, rules } = new AbilityBuilder(AppAbility);
 
   can("read", "Dashboard");
 
@@ -61,9 +66,11 @@ export function buildAbilityFor(user: User) {
     });
   }
 
-  return build({
-    detectSubjectType: (item) => item.__type
-  });
+  return rules;
+}
+
+export function buildAbilityFor(user: User): AppAbility {
+  return new AppAbility(defineRulesFor(user), abilityOptions);
 }
 
 export function orderSubject(order: Order) {
@@ -77,3 +84,4 @@ export function reportSubject(report: Report) {
 export function userSubject(user: User) {
   return subject("User", { ...user, __type: "User" });
 }
+

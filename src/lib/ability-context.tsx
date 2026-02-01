@@ -1,14 +1,44 @@
 "use client";
 
-import { createContext, PropsWithChildren, useMemo } from "react";
-import { AbilityContext } from "@casl/react";
+import { createContextualCan } from "@casl/react";
+import { createContext, PropsWithChildren, useContext, useMemo } from "react";
+import type { RawRuleOf } from "@casl/ability";
+
 import type { AppAbility, User } from "./ability";
-import { buildAbilityFor } from "./ability";
+import { abilityOptions, AppAbility as AppAbilityClass, buildAbilityFor } from "./ability";
 
-export const AppAbilityContext = createContext<AppAbility | null>(null);
+const defaultAbility = new AppAbilityClass([], abilityOptions);
+export const AbilityContext = createContext<AppAbility>(defaultAbility);
 
-export function AbilityProvider({ user, children }: PropsWithChildren<{ user: User }>) {
-  const ability = useMemo(() => buildAbilityFor(user), [user]);
+export const useCurrentAbility = () => {
+  const currentUserContext = useContext(AbilityContext);
+
+  if (!currentUserContext) {
+    throw new Error(
+      "useCurrentAbility has to be used within <AbilityContext.Provider>"
+    );
+  }
+
+  return currentUserContext;
+};
+
+export const Can = createContextualCan(AbilityContext.Consumer);
+
+
+
+type AbilityProviderProps = PropsWithChildren<{
+  user: User;
+  rules?: RawRuleOf<AppAbility>[];
+}>;
+
+export function AbilityProvider({ user, rules, children }: AbilityProviderProps) {
+  const ability = useMemo(() => {
+    if (rules) {
+      return new AppAbilityClass(rules, abilityOptions);
+    }
+
+    return buildAbilityFor(user);
+  }, [user, rules]);
 
   return (
     <AbilityContext.Provider value={ability}>
