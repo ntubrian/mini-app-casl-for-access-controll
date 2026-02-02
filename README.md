@@ -187,16 +187,23 @@ npm run dev
 - Swagger UI: `http://localhost:4000/api/docs`
 - OpenAPI JSON: `http://localhost:4000/api/openapi.json`
 
-## Vercel deployment (serverless)
+## Vercel deployment (split frontend/backend)
 
-This repo uses `vercel.json` to route `/api/*` to the Express serverless function:
+Deploy as **two Vercel projects** (recommended for this monorepo):
 
-- Frontend: `apps/web` (Next.js)
-- Backend: `apps/api/src/index.ts` (Express on @vercel/node)
+### Backend (API)
 
-Steps:
+1) New Project → select this repo.
+2) Root Directory: `apps/api`
+3) Framework Preset: Other
+4) Build Command: leave empty
+5) Environment Variables: `DATABASE_URL`
+6) Deploy
 
-1) Import the repo into Vercel.
-2) Add `DATABASE_URL` in Project Settings → Environment Variables.
-3) (Optional) Keep Build Command empty or use `npm run build` if you want Nx to build the app.
-4) Deploy.
+### Frontend (Next)
+
+1) New Project → select this repo.
+2) Root Directory: `apps/web`
+3) Framework Preset: Next.js
+4) Environment Variables: `NEXT_PUBLIC_API_BASE=https://<your-api-domain>`
+5) Deploy
