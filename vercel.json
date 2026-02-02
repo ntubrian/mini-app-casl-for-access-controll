@@ -3,7 +3,7 @@
     { "src": "apps/web/next.config.js", "use": "@vercel/next" },
     { "src": "apps/api/src/index.ts", "use": "@vercel/node" }
   ],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "apps/api/src/index.ts" }
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/apps/api/src/index.ts" }
   ]
 }
