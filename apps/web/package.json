@@ -1,4 +1,6 @@
 {
+  "name": "web",
+  "private": true,
   "scripts": {
     "vercel-build": "next build"
   }
