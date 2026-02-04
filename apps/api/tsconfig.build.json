@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "types": ["node"],
+    "outDir": "../../dist/apps/api",
+    "rootDir": "../..",
+    "declaration": false,
+    "sourceMap": true,
+    "noEmit": false,
+    "incremental": true,
+    "tsBuildInfoFile": "../../dist/apps/api/tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "src/**/*.ts",
+    "../../libs/db/src/**/*.ts",
+    "../../libs/policies/src/**/*.ts"
+  ],
+  "exclude": ["**/*.spec.ts", "**/*.test.ts"]
+}

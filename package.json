@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "nx dev web",
-    "dev:api": "tsx apps/api/src/dev.ts",
+    "dev:api": "nx run api:serve --configuration=development",
     "build": "nx build web",
+    "build:api": "nx run api:build --configuration=production",
     "start": "nx start web",
+    "start:api": "nx run api:serve --configuration=production",
     "lint": "cd apps/web && next lint",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
