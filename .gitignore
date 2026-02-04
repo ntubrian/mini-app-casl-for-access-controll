@@ -1,0 +1,11 @@
+/node_modules
+/.next
+/apps/web/.next
+/out
+/.env
+/.env.local
+/.env.*.local
+/.nx
+/dist
+/drizzle
+.vercel
