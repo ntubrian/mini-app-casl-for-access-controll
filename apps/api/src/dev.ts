@@ -3,7 +3,7 @@ import app from "./index";
 
 config({ path: ".env.local" });
 
-const port = Number(process.env.API_PORT ?? 4000);
+const port = Number(process.env.PORT ?? process.env.API_PORT ?? 4000);
 
 const server = app.listen(port, () => {
   console.log(`API server listening on http://localhost:${port}`);
