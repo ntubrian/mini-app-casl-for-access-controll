@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "yarn nx run web:build && mkdir -p .next public && cp -R dist/apps/web/.next/. .next/ && cp -R dist/apps/web/public/. public/"
+  "buildCommand": "yarn --cwd apps/web vercel-build"
 }
