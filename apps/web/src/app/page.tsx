@@ -141,12 +141,44 @@ export default function Home() {
     []
   );
 
-  useEffect(() => {
+  const resetPolicyState = () => {
     setPolicyRules(null);
     setPolicyStatus("idle");
     setPolicyIssuedAt(null);
     setPolicyVersion(null);
-  }, [selected, policySet]);
+  };
+
+  useEffect(() => {
+    resetPolicyState();
+
+    if (!apiBase) {
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadPolicy = async () => {
+      setPolicyStatus("loading");
+
+      try {
+        const data = await fetchPolicyFromApi(policySet, selected, controller.signal);
+        setPolicyRules(data.rules);
+        setPolicyIssuedAt(data.issuedAt ?? null);
+        setPolicyVersion(typeof data.version === "number" ? data.version : null);
+        setPolicyStatus("ready");
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        setPolicyStatus("error");
+      }
+    };
+
+    void loadPolicy();
+
+    return () => controller.abort();
+  }, [apiBase, selected, policySet]);
 
   const buildApiUrl = (path: string, params?: Record<string, string>) => {
     if (!params) {
@@ -157,9 +189,17 @@ export default function Home() {
     return `${apiBase}${path}?${query.toString()}`;
   };
 
-  const fetchPolicyFromApi = async (setKey: PolicySetKey, userKey: string) => {
+  const fetchPolicyFromApi = async (
+    setKey: PolicySetKey,
+    userKey: string,
+    signal?: AbortSignal
+  ) => {
     const response = await fetch(
-      buildApiUrl("/api/ability", { set: setKey, user: userKey })
+      buildApiUrl("/api/ability", { set: setKey, user: userKey }),
+      {
+        signal,
+        cache: "no-store"
+      }
     );
 
     if (!response.ok) {
@@ -193,15 +233,19 @@ export default function Home() {
     }
   };
 
+  const refreshPolicy = async () => {
+    const data = await fetchPolicyFromApi(policySet, selected);
+    setPolicyRules(data.rules);
+    setPolicyIssuedAt(data.issuedAt ?? null);
+    setPolicyVersion(typeof data.version === "number" ? data.version : null);
+  };
+
   const updatePolicy = async () => {
     setPolicyStatus("loading");
 
     try {
       await publishPolicyVersion(policySet);
-      const data = await fetchPolicyFromApi(policySet, selected);
-      setPolicyRules(data.rules);
-      setPolicyIssuedAt(data.issuedAt ?? null);
-      setPolicyVersion(typeof data.version === "number" ? data.version : null);
+      await refreshPolicy();
       setPolicyStatus("ready");
     } catch (error) {
       setPolicyStatus("error");
