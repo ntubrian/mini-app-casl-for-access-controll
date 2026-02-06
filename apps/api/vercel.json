@@ -5,7 +5,7 @@
   "buildCommand": "echo \"skip\"",
   "functions": {
     "api/[...path].ts": {
-      "runtime": "@vercel/node"
+      "runtime": "nodejs20.x"
     }
   }
 }
