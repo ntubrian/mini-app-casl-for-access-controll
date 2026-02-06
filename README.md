@@ -140,7 +140,7 @@ Default seeded rules use simple tokens like `$user.region` and `$user.level` whi
 ### Schema + migrations
 
 1) Set `DATABASE_URL` (see `.env.example`).
-2) (Optional) If you run the API separately, set `NEXT_PUBLIC_API_BASE=http://localhost:4000`.
+2) (Optional) If you run the API separately, set `API_BASE_URL=http://localhost:4000`.
 3) Generate migrations:
 
 ```bash
@@ -205,5 +205,5 @@ Deploy as **two Vercel projects** (recommended for this monorepo):
 1) New Project → select this repo.
 2) Root Directory: `apps/web`
 3) Framework Preset: Next.js
-4) Environment Variables: `NEXT_PUBLIC_API_BASE=https://<your-api-domain>`
+4) Environment Variables: `API_BASE_URL=https://<your-api-domain>`
 5) Deploy
