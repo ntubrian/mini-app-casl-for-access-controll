@@ -5,8 +5,6 @@ const workspaceRoot = path.join(__dirname, "../..");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // On Vercel, emit the build at repo root so the runtime can discover .next.
-  distDir: process.env.VERCEL ? "../../.next" : ".next",
   outputFileTracingRoot: workspaceRoot,
   async rewrites() {
     const apiBase =

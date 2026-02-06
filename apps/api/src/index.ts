@@ -1,6 +1,5 @@
 import express, { type RequestHandler } from "express";
 import { desc, eq } from "drizzle-orm";
-import swaggerUi from "swagger-ui-express";
 import { getDb, policySets, policyVersions } from "../../../libs/db/src";
 import { policyTemplates } from "../../../libs/policies/src";
 import type { ApiAbilityRule, PolicySetKey } from "../../../libs/policies/src";
@@ -282,9 +281,42 @@ app.get("/api/openapi.json", (_req, res) => {
   res.status(200).json(openApiSpec);
 });
 
-const swaggerServe = swaggerUi.serve as unknown as RequestHandler[];
-const swaggerSetup = swaggerUi.setup(openApiSpec) as unknown as RequestHandler;
-app.use("/api/docs", ...swaggerServe, swaggerSetup);
+const swaggerHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Policy API Docs</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+    />
+    <style>
+      html, body { margin: 0; padding: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.onload = () => {
+        window.ui = SwaggerUIBundle({
+          url: "/api/openapi.json",
+          dom_id: "#swagger-ui",
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset
+          ],
+          layout: "BaseLayout"
+        });
+      };
+    </script>
+  </body>
+</html>`;
+
+app.get("/api/docs", (_req, res) => {
+  res.status(200).type("text/html").send(swaggerHtml);
+});
 
 app.get("/api/ability", async (req, res) => {
   try {

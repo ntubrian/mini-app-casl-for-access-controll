@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "installCommand": "yarn --cwd ../.. install",
+  "buildCommand": "echo \"skip\"",
+  "builds": [
+    {
+      "src": "api/[...path].ts",
+      "use": "@vercel/node@4.0.0"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/[...path].ts"
+    }
+  ]
+}
