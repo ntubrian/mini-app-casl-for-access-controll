@@ -148,19 +148,57 @@ export default function Home() {
     setPolicyVersion(null);
   }, [selected, policySet]);
 
+  const buildApiUrl = (path: string, params?: Record<string, string>) => {
+    if (!params) {
+      return `${apiBase}${path}`;
+    }
+
+    const query = new URLSearchParams(params);
+    return `${apiBase}${path}?${query.toString()}`;
+  };
+
+  const fetchPolicyFromApi = async (setKey: PolicySetKey, userKey: string) => {
+    const response = await fetch(
+      buildApiUrl("/api/ability", { set: setKey, user: userKey })
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch policy");
+    }
+
+    return (await response.json()) as AbilityPolicyResponse;
+  };
+
+  const publishPolicyVersion = async (setKey: PolicySetKey) => {
+    const template = policyTemplates[setKey];
+
+    if (!template) {
+      throw new Error("Policy template not found");
+    }
+
+    const response = await fetch(buildApiUrl("/api/ability"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        setKey,
+        name: template.name,
+        description: template.description,
+        rules: template.rules,
+        createdBy: user.id
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update policy");
+    }
+  };
+
   const updatePolicy = async () => {
     setPolicyStatus("loading");
 
     try {
-      const response = await fetch(
-        `${apiBase}/api/ability?set=${policySet}&user=${selected}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch policy");
-      }
-
-      const data = (await response.json()) as AbilityPolicyResponse;
+      await publishPolicyVersion(policySet);
+      const data = await fetchPolicyFromApi(policySet, selected);
       setPolicyRules(data.rules);
       setPolicyIssuedAt(data.issuedAt ?? null);
       setPolicyVersion(typeof data.version === "number" ? data.version : null);
