@@ -137,7 +137,7 @@ export default function Home() {
   const [policyIssuedAt, setPolicyIssuedAt] = useState<string | null>(null);
   const [policyVersion, setPolicyVersion] = useState<number | null>(null);
   const apiBase = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "",
+    () => process.env.API_BASE_URL?.replace(/\/$/, "") ?? "",
     []
   );
 
@@ -150,10 +150,6 @@ export default function Home() {
 
   useEffect(() => {
     resetPolicyState();
-
-    if (!apiBase) {
-      return;
-    }
 
     const controller = new AbortController();
 
