@@ -7,6 +7,40 @@ import type { ApiAbilityRule, PolicySetKey } from "../../../libs/policies/src";
 const app = express();
 app.use(express.json());
 
+const corsOrigins = (process.env.CORS_ORIGIN ?? "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowAll = corsOrigins.length === 0;
+
+  if (allowAll) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  } else if (origin && corsOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
+
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization"
+  );
+  res.setHeader("Access-Control-Max-Age", "86400");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
+  next();
+});
+
 type User = {
   id: string;
   role: "sales_bu" | "general_manager" | "admin";
