@@ -3,9 +3,16 @@
   "version": 2,
   "installCommand": "yarn --cwd ../.. install",
   "buildCommand": "echo \"skip\"",
-  "functions": {
-    "api/[...path].ts": {
-      "runtime": "nodejs20.x"
+  "builds": [
+    {
+      "src": "api/[...path].ts",
+      "use": "@vercel/node@3.0.7"
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/[...path].ts"
+    }
+  ]
 }
