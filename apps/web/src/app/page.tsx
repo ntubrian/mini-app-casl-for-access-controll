@@ -168,8 +168,13 @@ export default function Home() {
         setPolicyRules(data.rules);
         setPolicyIssuedAt(data.issuedAt ?? null);
         setPolicyVersion(typeof data.version === "number" ? data.version : null);
-        if (policyFetchMode === "assigned" && data.set && data.set !== policySet) {
-          setPolicySet(data.set);
+        if (
+          policyFetchMode === "assigned" &&
+          data.set &&
+          data.set !== policySet &&
+          Object.prototype.hasOwnProperty.call(policyTemplates, data.set)
+        ) {
+          setPolicySet(data.set as PolicySetKey);
         }
         setPolicyStatus("ready");
       } catch (error) {
@@ -249,8 +254,13 @@ export default function Home() {
     setPolicyRules(data.rules);
     setPolicyIssuedAt(data.issuedAt ?? null);
     setPolicyVersion(typeof data.version === "number" ? data.version : null);
-    if (mode === "assigned" && data.set && data.set !== policySet) {
-      setPolicySet(data.set);
+    if (
+      mode === "assigned" &&
+      data.set &&
+      data.set !== policySet &&
+      Object.prototype.hasOwnProperty.call(policyTemplates, data.set)
+    ) {
+      setPolicySet(data.set as PolicySetKey);
     }
   };
 
