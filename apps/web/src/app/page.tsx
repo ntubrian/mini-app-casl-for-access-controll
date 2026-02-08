@@ -130,15 +130,15 @@ export default function Home() {
   const [selected, setSelected] = useState<keyof typeof users>("sales");
   const user = useMemo(() => users[selected], [selected]);
   const [policySet, setPolicySet] = useState<PolicySetKey>("sales-focus");
+  const [policyFetchMode, setPolicyFetchMode] = useState<"assigned" | "preview">(
+    "assigned"
+  );
   const [policyRules, setPolicyRules] = useState<ApiAbilityRule[] | null>(null);
   const [policyStatus, setPolicyStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle"
   );
   const [policyIssuedAt, setPolicyIssuedAt] = useState<string | null>(null);
   const [policyVersion, setPolicyVersion] = useState<number | null>(null);
-  const [serverSelectedUser, setServerSelectedUser] = useState<
-    keyof typeof users | null
-  >(null);
   const apiBase = useMemo(
     () => process.env.API_BASE_URL?.replace(/\/$/, "") ?? "",
     []
@@ -160,14 +160,16 @@ export default function Home() {
       setPolicyStatus("loading");
 
       try {
-        const data = await fetchPolicyFromApi(policySet, selected, controller.signal);
+        const data = await fetchPolicyFromApi(
+          selected,
+          policyFetchMode === "preview" ? policySet : undefined,
+          controller.signal
+        );
         setPolicyRules(data.rules);
         setPolicyIssuedAt(data.issuedAt ?? null);
         setPolicyVersion(typeof data.version === "number" ? data.version : null);
-        if (data.userKey && data.userKey !== selected) {
-          setServerSelectedUser(data.userKey as keyof typeof users);
-        } else {
-          setServerSelectedUser(null);
+        if (policyFetchMode === "assigned" && data.set && data.set !== policySet) {
+          setPolicySet(data.set);
         }
         setPolicyStatus("ready");
       } catch (error) {
@@ -182,7 +184,7 @@ export default function Home() {
     void loadPolicy();
 
     return () => controller.abort();
-  }, [apiBase, selected, policySet]);
+  }, [apiBase, selected, policySet, policyFetchMode]);
 
   const buildApiUrl = (path: string, params?: Record<string, string>) => {
     if (!params) {
@@ -194,17 +196,19 @@ export default function Home() {
   };
 
   const fetchPolicyFromApi = async (
-    setKey: PolicySetKey,
     userKey: string,
+    setKey?: PolicySetKey,
     signal?: AbortSignal
   ) => {
-    const response = await fetch(
-      buildApiUrl("/api/ability", { set: setKey, user: userKey }),
-      {
-        signal,
-        cache: "no-store"
-      }
-    );
+    const params: Record<string, string> = { user: userKey };
+    if (setKey) {
+      params.set = setKey;
+    }
+
+    const response = await fetch(buildApiUrl("/api/ability", params), {
+      signal,
+      cache: "no-store"
+    });
 
     if (!response.ok) {
       throw new Error("Failed to fetch policy");
@@ -237,36 +241,34 @@ export default function Home() {
     }
   };
 
-  const refreshPolicy = async () => {
-    const data = await fetchPolicyFromApi(policySet, selected);
+  const refreshPolicy = async (mode: "assigned" | "preview" = policyFetchMode) => {
+    const data = await fetchPolicyFromApi(
+      selected,
+      mode === "preview" ? policySet : undefined
+    );
     setPolicyRules(data.rules);
     setPolicyIssuedAt(data.issuedAt ?? null);
     setPolicyVersion(typeof data.version === "number" ? data.version : null);
-    if (data.userKey && data.userKey !== selected) {
-      setServerSelectedUser(data.userKey as keyof typeof users);
-    } else {
-      setServerSelectedUser(null);
+    if (mode === "assigned" && data.set && data.set !== policySet) {
+      setPolicySet(data.set);
     }
   };
 
   const updatePolicy = async () => {
     setPolicyStatus("loading");
-    setServerSelectedUser(null);
+    setPolicyFetchMode("assigned");
 
     try {
       await publishPolicyVersion(policySet);
-      await refreshPolicy();
+      await refreshPolicy("assigned");
       setPolicyStatus("ready");
     } catch (error) {
       setPolicyStatus("error");
     }
   };
 
-  const activeUserKey = serverSelectedUser ?? selected;
-  const activeUser = users[activeUserKey] ?? user;
-
   return (
-    <AbilityProvider user={activeUser} rules={policyRules ?? undefined}>
+    <AbilityProvider user={user} rules={policyRules ?? undefined}>
       <main className="page">
         <header className="hero">
           <div className="hero__copy">
@@ -278,21 +280,21 @@ export default function Home() {
             <div className="meta-grid">
               <div className="meta-card">
                 <span className="meta-label">目前角色</span>
-                <strong>{roleLabels[activeUser.role]}</strong>
+                <strong>{roleLabels[user.role]}</strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">區域 / 事業部</span>
                 <strong>
-                  {regionLabels[activeUser.region]} / {businessUnitLabels[activeUser.businessUnit]}
+                  {regionLabels[user.region]} / {businessUnitLabels[user.businessUnit]}
                 </strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">權限等級</span>
-                <strong>等級 {activeUser.level}</strong>
+                <strong>等級 {user.level}</strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">使用者 ID</span>
-                <strong>{activeUser.id}</strong>
+                <strong>{user.id}</strong>
               </div>
             </div>
           </div>
@@ -303,14 +305,17 @@ export default function Home() {
             </div>
             <div className="role-grid">
               {Object.entries(users).map(([key, value]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelected(key as keyof typeof users)}
-                  className={`role-btn ${
-                    key === selected ? "role-btn--active" : ""
-                  }`}
-                >
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setSelected(key as keyof typeof users);
+                      setPolicyFetchMode("assigned");
+                    }}
+                    className={`role-btn ${
+                      key === selected ? "role-btn--active" : ""
+                    }`}
+                  >
                   <span>{roleLabels[value.role]}</span>
                   <span className="role-meta">
                     {regionLabels[value.region]} / {businessUnitLabels[value.businessUnit]}
@@ -324,7 +329,10 @@ export default function Home() {
                   <button
                     key={policy.key}
                     type="button"
-                    onClick={() => setPolicySet(policy.key)}
+                    onClick={() => {
+                      setPolicySet(policy.key);
+                      setPolicyFetchMode("preview");
+                    }}
                     className={`policy-btn ${
                       policySet === policy.key ? "policy-btn--active" : ""
                     }`}
@@ -348,9 +356,6 @@ export default function Home() {
                 ) : (
                   <span className="pill pill--warn">已啟用本地規則</span>
                 )}
-                {serverSelectedUser && serverSelectedUser !== selected ? (
-                  <span className="pill pill--warn">已以最新策略角色顯示</span>
-                ) : null}
                 <span>
                   目前策略：
                   <strong>
@@ -373,7 +378,7 @@ export default function Home() {
             </div>
             <div className="panel-note">
               <span className="pill pill--info">即時校驗</span>
-              <p>{roleDescriptions[activeUser.role]}</p>
+              <p>{roleDescriptions[user.role]}</p>
             </div>
           </div>
         </header>
