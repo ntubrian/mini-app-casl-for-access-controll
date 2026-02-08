@@ -237,7 +237,8 @@ export default function Home() {
         name: template.name,
         description: template.description,
         rules: template.rules,
-        createdBy: user.id
+        createdBy: user.id,
+        userKey: selected
       })
     });
 
