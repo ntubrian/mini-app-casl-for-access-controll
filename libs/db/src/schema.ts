@@ -34,3 +34,12 @@ export const policyVersions = pgTable("policy_versions", {
     .defaultNow(),
   createdBy: text("created_by")
 });
+
+export const policyAssignments = pgTable("policy_assignments", {
+  id: serial("id").primaryKey(),
+  userKey: text("user_key").notNull().unique(),
+  setKey: text("set_key").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+});
