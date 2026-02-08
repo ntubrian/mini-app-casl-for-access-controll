@@ -136,6 +136,9 @@ export default function Home() {
   );
   const [policyIssuedAt, setPolicyIssuedAt] = useState<string | null>(null);
   const [policyVersion, setPolicyVersion] = useState<number | null>(null);
+  const [serverSelectedUser, setServerSelectedUser] = useState<
+    keyof typeof users | null
+  >(null);
   const apiBase = useMemo(
     () => process.env.API_BASE_URL?.replace(/\/$/, "") ?? "",
     []
@@ -161,6 +164,11 @@ export default function Home() {
         setPolicyRules(data.rules);
         setPolicyIssuedAt(data.issuedAt ?? null);
         setPolicyVersion(typeof data.version === "number" ? data.version : null);
+        if (data.userKey && data.userKey !== selected) {
+          setServerSelectedUser(data.userKey as keyof typeof users);
+        } else {
+          setServerSelectedUser(null);
+        }
         setPolicyStatus("ready");
       } catch (error) {
         if (controller.signal.aborted) {
@@ -234,10 +242,16 @@ export default function Home() {
     setPolicyRules(data.rules);
     setPolicyIssuedAt(data.issuedAt ?? null);
     setPolicyVersion(typeof data.version === "number" ? data.version : null);
+    if (data.userKey && data.userKey !== selected) {
+      setServerSelectedUser(data.userKey as keyof typeof users);
+    } else {
+      setServerSelectedUser(null);
+    }
   };
 
   const updatePolicy = async () => {
     setPolicyStatus("loading");
+    setServerSelectedUser(null);
 
     try {
       await publishPolicyVersion(policySet);
@@ -248,8 +262,11 @@ export default function Home() {
     }
   };
 
+  const activeUserKey = serverSelectedUser ?? selected;
+  const activeUser = users[activeUserKey] ?? user;
+
   return (
-    <AbilityProvider user={user} rules={policyRules ?? undefined}>
+    <AbilityProvider user={activeUser} rules={policyRules ?? undefined}>
       <main className="page">
         <header className="hero">
           <div className="hero__copy">
@@ -261,21 +278,21 @@ export default function Home() {
             <div className="meta-grid">
               <div className="meta-card">
                 <span className="meta-label">目前角色</span>
-                <strong>{roleLabels[user.role]}</strong>
+                <strong>{roleLabels[activeUser.role]}</strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">區域 / 事業部</span>
                 <strong>
-                  {regionLabels[user.region]} / {businessUnitLabels[user.businessUnit]}
+                  {regionLabels[activeUser.region]} / {businessUnitLabels[activeUser.businessUnit]}
                 </strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">權限等級</span>
-                <strong>等級 {user.level}</strong>
+                <strong>等級 {activeUser.level}</strong>
               </div>
               <div className="meta-card">
                 <span className="meta-label">使用者 ID</span>
-                <strong>{user.id}</strong>
+                <strong>{activeUser.id}</strong>
               </div>
             </div>
           </div>
@@ -331,6 +348,9 @@ export default function Home() {
                 ) : (
                   <span className="pill pill--warn">已啟用本地規則</span>
                 )}
+                {serverSelectedUser && serverSelectedUser !== selected ? (
+                  <span className="pill pill--warn">已以最新策略角色顯示</span>
+                ) : null}
                 <span>
                   目前策略：
                   <strong>
@@ -353,7 +373,7 @@ export default function Home() {
             </div>
             <div className="panel-note">
               <span className="pill pill--info">即時校驗</span>
-              <p>{roleDescriptions[user.role]}</p>
+              <p>{roleDescriptions[activeUser.role]}</p>
             </div>
           </div>
         </header>

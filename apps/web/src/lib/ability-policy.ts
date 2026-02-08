@@ -6,6 +6,7 @@ export type ApiAbilityRule = RawRuleOf<AppAbility>;
 export interface AbilityPolicyResponse {
   rules: ApiAbilityRule[];
   set?: string;
+  userKey?: string;
   userId?: string;
   version?: number;
   issuedAt?: string;

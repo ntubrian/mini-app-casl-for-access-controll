@@ -52,6 +52,7 @@ type User = {
 type AbilityPolicyResponse = {
   rules: ApiAbilityRule[];
   set?: string;
+  userKey?: string;
   userId?: string;
   version?: number;
   issuedAt?: string;
@@ -201,6 +202,7 @@ const openApiSpec = {
             items: { $ref: "#/components/schemas/AbilityRule" }
           },
           set: { type: "string" },
+          userKey: { type: "string" },
           userId: { type: "string" },
           version: { type: "number" },
           issuedAt: { type: "string" }
@@ -355,8 +357,7 @@ app.get("/api/docs", (_req, res) => {
 app.get("/api/ability", async (req, res) => {
   try {
     const setKey = (req.query.set as PolicySetKey) ?? "sales-focus";
-    const userKey = (req.query.user as string) ?? "sales";
-    const user = users[userKey] ?? users.sales;
+    const requestedUserKey = req.query.user as string | undefined;
     const db = getDb();
 
     await seedPolicySets();
@@ -376,7 +377,8 @@ app.get("/api/ability", async (req, res) => {
       .select({
         rules: policyVersions.rules,
         version: policyVersions.version,
-        createdAt: policyVersions.createdAt
+        createdAt: policyVersions.createdAt,
+        createdBy: policyVersions.createdBy
       })
       .from(policyVersions)
       .where(eq(policyVersions.setId, setRecord[0].id))
@@ -389,6 +391,23 @@ app.get("/api/ability", async (req, res) => {
     }
 
     const record = versionRecord[0];
+    let userKey = requestedUserKey;
+    let user = requestedUserKey ? users[requestedUserKey] : undefined;
+
+    if (!user && record.createdBy) {
+      const match = Object.entries(users).find(
+        ([, value]) => value.id === record.createdBy
+      );
+      if (match) {
+        [userKey, user] = match;
+      }
+    }
+
+    if (!user) {
+      userKey = "sales";
+      user = users.sales;
+    }
+
     const rules = resolveRulesForUser(record.rules as ApiAbilityRule[], user);
     const issuedAt =
       record.createdAt instanceof Date
@@ -398,6 +417,7 @@ app.get("/api/ability", async (req, res) => {
     const payload: AbilityPolicyResponse = {
       rules,
       set: setKey,
+      userKey,
       userId: user.id,
       version: record.version,
       issuedAt
