@@ -356,59 +356,102 @@ app.get("/api/docs", (_req, res) => {
 
 app.get("/api/ability", async (req, res) => {
   try {
-    const setKey = (req.query.set as PolicySetKey) ?? "sales-focus";
-    const requestedUserKey = req.query.user as string | undefined;
+    const setKeyParam = req.query.set as PolicySetKey | undefined;
+    const userKeyParam = req.query.user as string | undefined;
+    const resolvedUserKey =
+      userKeyParam && users[userKeyParam] ? userKeyParam : "sales";
+    const user = users[resolvedUserKey];
     const db = getDb();
 
     await seedPolicySets();
 
-    const setRecord = await db
-      .select({ id: policySets.id, key: policySets.key })
-      .from(policySets)
-      .where(eq(policySets.key, setKey))
-      .limit(1);
+    type PolicyRecord = {
+      rules: ApiAbilityRule[];
+      version: number;
+      createdAt: Date | string;
+      setKey: PolicySetKey;
+    };
 
-    if (setRecord.length === 0) {
-      res.status(404).json({ error: "Policy set not found" });
-      return;
-    }
+    const resolveLatestForUser = async (): Promise<PolicyRecord | null> => {
+      if (!userKeyParam || setKeyParam) {
+        return null;
+      }
 
-    const versionRecord = await db
-      .select({
-        rules: policyVersions.rules,
-        version: policyVersions.version,
-        createdAt: policyVersions.createdAt,
-        createdBy: policyVersions.createdBy
-      })
-      .from(policyVersions)
-      .where(eq(policyVersions.setId, setRecord[0].id))
-      .orderBy(desc(policyVersions.version))
-      .limit(1);
+      const records = await db
+        .select({
+          rules: policyVersions.rules,
+          version: policyVersions.version,
+          createdAt: policyVersions.createdAt,
+          setKey: policySets.key
+        })
+        .from(policyVersions)
+        .innerJoin(policySets, eq(policyVersions.setId, policySets.id))
+        .where(eq(policyVersions.createdBy, user.id))
+        .orderBy(desc(policyVersions.createdAt))
+        .limit(1);
 
-    if (versionRecord.length === 0) {
+      if (records.length === 0) {
+        return null;
+      }
+
+      const record = records[0];
+      return {
+        rules: record.rules as ApiAbilityRule[],
+        version: record.version,
+        createdAt: record.createdAt,
+        setKey: record.setKey as PolicySetKey
+      };
+    };
+
+    const resolveLatestForSet = async (
+      key: PolicySetKey
+    ): Promise<PolicyRecord | null> => {
+      const setRecord = await db
+        .select({ id: policySets.id, key: policySets.key })
+        .from(policySets)
+        .where(eq(policySets.key, key))
+        .limit(1);
+
+      if (setRecord.length === 0) {
+        return null;
+      }
+
+      const versionRecord = await db
+        .select({
+          rules: policyVersions.rules,
+          version: policyVersions.version,
+          createdAt: policyVersions.createdAt,
+          setKey: policySets.key
+        })
+        .from(policyVersions)
+        .innerJoin(policySets, eq(policyVersions.setId, policySets.id))
+        .where(eq(policyVersions.setId, setRecord[0].id))
+        .orderBy(desc(policyVersions.version))
+        .limit(1);
+
+      if (versionRecord.length === 0) {
+        return null;
+      }
+
+      const record = versionRecord[0];
+      return {
+        rules: record.rules as ApiAbilityRule[],
+        version: record.version,
+        createdAt: record.createdAt,
+        setKey: record.setKey as PolicySetKey
+      };
+    };
+
+    const record =
+      (await resolveLatestForUser()) ??
+      (await resolveLatestForSet(setKeyParam ?? "sales-focus"));
+
+    if (!record) {
       res.status(404).json({ error: "Policy version not found" });
       return;
     }
 
-    const record = versionRecord[0];
-    let userKey = requestedUserKey;
-    let user = requestedUserKey ? users[requestedUserKey] : undefined;
-
-    if (!user && record.createdBy) {
-      const match = Object.entries(users).find(
-        ([, value]) => value.id === record.createdBy
-      );
-      if (match) {
-        [userKey, user] = match;
-      }
-    }
-
-    if (!user) {
-      userKey = "sales";
-      user = users.sales;
-    }
-
-    const rules = resolveRulesForUser(record.rules as ApiAbilityRule[], user);
+    const rules = resolveRulesForUser(record.rules, user);
     const issuedAt =
       record.createdAt instanceof Date
         ? record.createdAt.toISOString()
@@ -416,8 +459,8 @@ app.get("/api/ability", async (req, res) => {
 
     const payload: AbilityPolicyResponse = {
       rules,
-      set: setKey,
-      userKey,
+      set: record.setKey,
+      userKey: resolvedUserKey,
       userId: user.id,
       version: record.version,
       issuedAt
