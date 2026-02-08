@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Can } from "../lib/ability-context";
 import {
   Order,
@@ -126,6 +126,11 @@ const orderStatusLabels: Record<Order["status"], string> = {
   shipped: "已出貨"
 };
 
+const resolveUserKeyFromId = (userId?: string | null) =>
+  (Object.keys(users) as Array<keyof typeof users>).find(
+    (key) => users[key].id === userId
+  );
+
 export default function Home() {
   const [selected, setSelected] = useState<keyof typeof users>("sales");
   const user = useMemo(() => users[selected], [selected]);
@@ -137,9 +142,11 @@ export default function Home() {
   const [policyIssuedAt, setPolicyIssuedAt] = useState<string | null>(null);
   const [policyVersion, setPolicyVersion] = useState<number | null>(null);
   const apiBase = useMemo(
-    () => process.env.API_BASE_URL?.replace(/\/$/, "") ?? "",
+    () => process.env.NEXT_PUBLIC_API_BASE?.replace(/\/$/, "") ?? "",
     []
   );
+
+  const hasInferredSelection = useRef(false);
 
   const resetPolicyState = () => {
     setPolicyRules(null);
@@ -157,7 +164,23 @@ export default function Home() {
       setPolicyStatus("loading");
 
       try {
-        const data = await fetchPolicyFromApi(policySet, selected, controller.signal);
+        const requestedUser = hasInferredSelection.current ? selected : undefined;
+        const data = await fetchPolicyFromApi(
+          policySet,
+          requestedUser,
+          controller.signal
+        );
+        const inferredUserKey = resolveUserKeyFromId(data.userId);
+
+        if (!hasInferredSelection.current && inferredUserKey) {
+          hasInferredSelection.current = true;
+          if (inferredUserKey !== selected) {
+            setSelected(inferredUserKey);
+            return;
+          }
+        }
+
+        hasInferredSelection.current = true;
         setPolicyRules(data.rules);
         setPolicyIssuedAt(data.issuedAt ?? null);
         setPolicyVersion(typeof data.version === "number" ? data.version : null);
@@ -187,16 +210,19 @@ export default function Home() {
 
   const fetchPolicyFromApi = async (
     setKey: PolicySetKey,
-    userKey: string,
+    userKey: string | undefined,
     signal?: AbortSignal
   ) => {
-    const response = await fetch(
-      buildApiUrl("/api/ability", { set: setKey, user: userKey }),
-      {
-        signal,
-        cache: "no-store"
-      }
-    );
+    const params: Record<string, string> = { set: setKey };
+
+    if (userKey) {
+      params.user = userKey;
+    }
+
+    const response = await fetch(buildApiUrl("/api/ability", params), {
+      signal,
+      cache: "no-store"
+    });
 
     if (!response.ok) {
       throw new Error("Failed to fetch policy");

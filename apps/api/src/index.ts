@@ -355,8 +355,8 @@ app.get("/api/docs", (_req, res) => {
 app.get("/api/ability", async (req, res) => {
   try {
     const setKey = (req.query.set as PolicySetKey) ?? "sales-focus";
-    const userKey = (req.query.user as string) ?? "sales";
-    const user = users[userKey] ?? users.sales;
+    const requestedUserKey =
+      typeof req.query.user === "string" ? req.query.user : undefined;
     const db = getDb();
 
     await seedPolicySets();
@@ -376,7 +376,8 @@ app.get("/api/ability", async (req, res) => {
       .select({
         rules: policyVersions.rules,
         version: policyVersions.version,
-        createdAt: policyVersions.createdAt
+        createdAt: policyVersions.createdAt,
+        createdBy: policyVersions.createdBy
       })
       .from(policyVersions)
       .where(eq(policyVersions.setId, setRecord[0].id))
@@ -389,6 +390,11 @@ app.get("/api/ability", async (req, res) => {
     }
 
     const record = versionRecord[0];
+    const userFromKey = requestedUserKey ? users[requestedUserKey] : undefined;
+    const userFromCreatedBy = record.createdBy
+      ? Object.values(users).find((candidate) => candidate.id === record.createdBy)
+      : undefined;
+    const user = userFromKey ?? userFromCreatedBy ?? users.sales;
     const rules = resolveRulesForUser(record.rules as ApiAbilityRule[], user);
     const issuedAt =
       record.createdAt instanceof Date
