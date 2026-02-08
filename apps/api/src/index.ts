@@ -52,6 +52,7 @@ type User = {
 type AbilityPolicyResponse = {
   rules: ApiAbilityRule[];
   set?: string;
+  userKey?: string;
   userId?: string;
   version?: number;
   issuedAt?: string;
@@ -201,6 +202,7 @@ const openApiSpec = {
             items: { $ref: "#/components/schemas/AbilityRule" }
           },
           set: { type: "string" },
+          userKey: { type: "string" },
           userId: { type: "string" },
           version: { type: "number" },
           issuedAt: { type: "string" }
@@ -355,8 +357,7 @@ app.get("/api/docs", (_req, res) => {
 app.get("/api/ability", async (req, res) => {
   try {
     const setKey = (req.query.set as PolicySetKey) ?? "sales-focus";
-    const requestedUserKey =
-      typeof req.query.user === "string" ? req.query.user : undefined;
+    const requestedUserKey = req.query.user as string | undefined;
     const db = getDb();
 
     await seedPolicySets();
@@ -390,11 +391,23 @@ app.get("/api/ability", async (req, res) => {
     }
 
     const record = versionRecord[0];
-    const userFromKey = requestedUserKey ? users[requestedUserKey] : undefined;
-    const userFromCreatedBy = record.createdBy
-      ? Object.values(users).find((candidate) => candidate.id === record.createdBy)
-      : undefined;
-    const user = userFromKey ?? userFromCreatedBy ?? users.sales;
+    let userKey = requestedUserKey;
+    let user = requestedUserKey ? users[requestedUserKey] : undefined;
+
+    if (!user && record.createdBy) {
+      const match = Object.entries(users).find(
+        ([, value]) => value.id === record.createdBy
+      );
+      if (match) {
+        [userKey, user] = match;
+      }
+    }
+
+    if (!user) {
+      userKey = "sales";
+      user = users.sales;
+    }
+
     const rules = resolveRulesForUser(record.rules as ApiAbilityRule[], user);
     const issuedAt =
       record.createdAt instanceof Date
@@ -404,6 +417,7 @@ app.get("/api/ability", async (req, res) => {
     const payload: AbilityPolicyResponse = {
       rules,
       set: setKey,
+      userKey,
       userId: user.id,
       version: record.version,
       issuedAt
